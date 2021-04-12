@@ -42,7 +42,7 @@ class Sudoku {
       this.numberOfPossibilities = suitableSquares.length;
       this.saveBoard();
       //sleep(1000);
-      return;
+      //return;
     }
     selectedSquareToCollapse.collapse();
     this.allSettled = this.squares.every((sq) => sq.isSettled() === true);
