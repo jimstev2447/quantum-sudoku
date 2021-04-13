@@ -1,6 +1,7 @@
 const Sudoku = require("./Sudoku");
 const Gui = require("./Gui");
-const testSudoku = new Sudoku();
+
+const testSudoku = new Sudoku(3);
 const newGui = new Gui(testSudoku);
 
 //hard one
@@ -19,9 +20,19 @@ newGui.updateWithPattern(
 // newGui.updateWithPattern(
 //   "-7----3--\n-4--539--\n9----8---\n--6-----4\n3---49---\n--5----6-\n---1--2--\n-5----7--\n----7--51"
 // );
+//expert;
+// newGui.updateWithPattern(
+//   "---------\n-7---1-5-\n-----7489\n----6--7-\n---4-58--\n-43-9--6-\n--9-5--1-\n-513-62--\n--8-----7"
+// );
 newGui.watch();
 //newGui.slow();
-
 // if 2 squares in a given area contain the same
 // 2 options then all the others inside that area
 // must not be those options
+
+/*
+collapse a square
+
+each square affected by that collapse reduces its possibilities
+
+*/

@@ -1,29 +1,47 @@
 const Square = require("./Square");
-const { sleep } = require("./utils");
 class Sudoku {
-  constructor() {
-    this.generateSquares();
-    this.state = "settled";
-    this.selectedSquare = null;
-    this.previousBoards = [];
+  constructor(gridSize) {
+    this.size = gridSize;
+    this.gridSize = gridSize;
+    this.squares = this.generateSquares(gridSize);
+    this.state = "readyToCollapse";
+    this.lastCollapsedSquare = null;
+    this.rows = this.generateAreas("row");
+    this.cols = this.generateAreas("col");
+    this.grids = this.generateAreas("grid");
+    this.selfCheckingWorked = 0;
+    this.recursiveReductions = 0;
     this.decisions = 0;
-    this.numberOfPossibilities = 0;
-    this.isCorrect = true;
+    this.areaCheckReductions = 0;
+    this.count = 0;
   }
-  generateSquares() {
+  generateAreas(area) {
+    const areas = {};
+    for (let i = 0; i < this.gridSize * this.gridSize; i++) {
+      areas[i] = this.squares.filter((sq) => sq[area] === i);
+    }
+    return areas;
+  }
+  generateSquares(size) {
     const squares = [];
-    for (let row = 0; row < 9; row++) {
-      for (let col = 0; col < 9; col++) {
-        squares.push(new Square(row, col));
+    for (let row = 0; row < size * size; row++) {
+      for (let col = 0; col < size * size; col++) {
+        squares.push(new Square(row, col, size));
       }
     }
-    this.squares = squares;
-  }
-  getSquares() {
-    return this.squares;
+    return squares;
   }
   collapseNextWave() {
-    if (this.allSettled) return;
+    const square = this.findSquareToCollapse();
+    if (square !== undefined) {
+      square.collapse();
+      this.lastCollapsedSquare = square;
+      this.state = "collapsed";
+    } else {
+      this.allSettled = true;
+    }
+  }
+  findSquareToCollapse() {
     const possibleSquares = this.squares.filter((sq) => !sq.isSettled());
     const smallestPossibilities = Math.min(
       ...possibleSquares.map((sq) => sq.possibilities.length)
@@ -31,69 +49,68 @@ class Sudoku {
     const suitableSquares = possibleSquares.filter(
       (sq) => sq.possibilities.length === smallestPossibilities
     );
+    if (suitableSquares.length > 1 && smallestPossibilities > 1) {
+      this.decisions++;
+    }
     const selectedSquareToCollapse =
       suitableSquares[Math.floor(Math.random() * suitableSquares.length)];
 
-    this.selectedSquare = selectedSquareToCollapse;
-
-    if (smallestPossibilities > 1) {
-      this.allSettled = true;
-      this.decisions++;
-      this.numberOfPossibilities = suitableSquares.length;
-      this.saveBoard();
-      //sleep(1000);
-      //return;
-    }
-    selectedSquareToCollapse.collapse();
-    this.allSettled = this.squares.every((sq) => sq.isSettled() === true);
-    this.state = "collapsed";
+    return selectedSquareToCollapse;
   }
-  reducePossibilities(square = this.selectedSquare) {
-    const { affectedRow, affectedCol, affectedGrid } = this.getAffectedSquares(
-      square
-    );
-    const areasToCheck = [affectedRow, affectedCol, affectedGrid];
-    areasToCheck.forEach((area) => {
-      const settledNums = area
-        .filter((sq) => sq.isSettled())
-        .map((sq) => sq.finalState());
-      area.forEach((sq) => {
-        sq.reducePossibilities(...settledNums);
-      });
-    });
-
-    this.state = "settled";
-  }
-  checkSinglePossibilities() {
-    this.squares.forEach((sq) => {
-      const {
-        affectedRow,
-        affectedCol,
-        affectedGrid,
-      } = this.getAffectedSquares(sq);
-      if (!sq.isSettled()) {
-        sq.updateSelf(affectedRow);
-        sq.updateSelf(affectedCol);
-        sq.updateSelf(affectedGrid);
+  reducePossibilities(square = this.lastCollapsedSquare) {
+    const affectedSquares = this.getAffectedSquares(square);
+    affectedSquares.forEach((sq) => {
+      const poss = sq.possibilities.length;
+      sq.reducePossibilities(
+        this.rows[sq.row],
+        this.cols[sq.col],
+        this.grids[sq.grid]
+      );
+      if (poss > sq.possibilities.length) {
+        if (square !== this.lastCollapsedSquare) this.recursiveReductions++;
+        this.reducePossibilities(sq);
       }
     });
-    this.state = "checkAreas";
+
+    this.state = "possibilitiesReduced";
+  }
+  squaresCheckSelves() {
+    this.squares.forEach((sq) => {
+      const { row, col, grid, possibilities } = sq;
+      const { rows, cols, grids } = this;
+      const test = possibilities.length;
+      sq.updateSelf(rows[row]);
+      sq.updateSelf(cols[col]);
+      sq.updateSelf(grids[grid]);
+      if (test !== sq.possibilities.length) this.selfCheckingWorked++;
+    });
+    this.state = "squaresChecked";
   }
   getAffectedSquares(square) {
-    return this.squares.reduce(
-      (acc, sq) => {
-        const { row, col, grid } = square;
-        if (sq.row === row) acc.affectedRow.push(sq);
-        if (sq.col === col) acc.affectedCol.push(sq);
-        if (sq.grid === grid) acc.affectedGrid.push(sq);
-        return acc;
-      },
-      {
-        affectedRow: [],
-        affectedCol: [],
-        affectedGrid: [],
-      }
-    );
+    return this.squares.filter((sq) => {
+      return (
+        !sq.isSettled() &&
+        sq !== square &&
+        (sq.row === square.row ||
+          sq.col === square.col ||
+          sq.grid === square.grid)
+      );
+    });
+  }
+  getSquares() {
+    return this.squares;
+  }
+  checkAreas() {
+    for (const grid in this.grids) {
+      this.checkArea(this.grids[grid]);
+    }
+    for (const row in this.rows) {
+      this.checkArea(this.rows[row]);
+    }
+    for (const col in this.cols) {
+      this.checkArea(this.cols[col]);
+    }
+    this.state = "readyToCollapse";
   }
   checkArea(area) {
     const lookup = {};
@@ -107,87 +124,57 @@ class Sudoku {
     for (const [possStr, squares] of Object.entries(lookup)) {
       if (possStr.length === squares.length) {
         const otherSquares = area.filter((sq) => !squares.includes(sq));
-        this.otherSquares = otherSquares;
-
-        otherSquares.forEach((sq) =>
-          sq.reducePossibilities(...possStr.split("").map((n) => +n))
-        );
+        otherSquares.forEach((sq) => {
+          const poss = sq.possibilities.length;
+          sq.narrow(...possStr.split("").map((n) => +n));
+          if (poss > sq.possibilities.length) this.areaCheckReductions++;
+        });
       }
     }
   }
   next() {
-    if (this.state === "settled") {
-      this.state = "checkingSingle";
-      this.checkSinglePossibilities();
-    } else if (this.state === "checkAreas") {
-      this.state === "checkingAreas";
-      this.checkAreas();
-    } else if (this.state === "readyToCollapse") {
-      this.state = "collapsing";
-      this.collapseNextWave();
-      this.checkAccuracy();
-    } else if (this.state === "collapsed") {
-      this.state === "inspecting";
-      this.reducePossibilities();
+    let { count } = this;
+    switch (count) {
+      case 0:
+        this.collapseNextWave();
+        this.count++;
+        break;
+      case 1:
+        this.reducePossibilities();
+        this.count++;
+        break;
+      case 2:
+        this.squaresCheckSelves();
+        this.count++;
+        break;
+      case 3:
+        this.checkAreas();
+        this.count++;
+        break;
     }
-    this.checkAccuracy();
-  }
-  checkAreas() {
-    for (let i = 0; i < 9; i++) {
-      const row = this.squares.filter((sq) => sq.row === i);
-      this.checkArea(row);
-      const col = this.squares.filter((sq) => sq.col === i);
-      this.checkArea(col);
-      const grid = this.squares.filter((sq) => sq.grid === i);
-      this.checkArea(grid);
-    }
-    this.state = "readyToCollapse";
-  }
-  checkAccuracy() {
-    const toCheck = ["row", "col", "grid"];
-    toCheck.forEach((targetToCheck) => {
-      for (let i = 0; i < 9; i++) {
-        const squaresInTarget = this.squares.filter(
-          (sq) => sq[targetToCheck] === i
-        );
-        const finalStates = squaresInTarget.reduce(
-          (acc, sq) => (sq.isSettled() ? [...acc, sq.finalState()] : acc),
-          []
-        );
-        finalStates.sort();
-        if (finalStates.includes("x")) {
-          this.isCorrect = false;
-        }
-        finalStates.forEach((n, index, arr) => {
-          if (n === arr[index - 1]) {
-            this.isCorrect = false;
-          }
-        });
-      }
-    });
-    if (!this.isCorrect) {
-      this.squares = this.previousBoards[0].board;
-      this.isCorrect = true;
-    }
+    if (this.count === 4) this.count = 0;
+    // switch (this.state) {
+    //   case "readyToCollapse":
+    //     this.collapseNextWave();
+    //     break;
+    //   case "collapsed":
+    //     this.reducePossibilities();
+    //     break;
+    //   case "possibilitiesReduced":
+    //     this.squaresCheckSelves();
+    //     break;
+    //   case "squaresChecked":
+    //     this.checkAreas();
+    //     break;
+    // }
   }
   updateSquare(row, col, value) {
     const square = this.squares.find((sq) => sq.row === row && sq.col === col);
     square.collapse(value);
     this.reducePossibilities(square);
+    this.squaresCheckSelves();
     this.checkAreas();
-    this.checkSinglePossibilities();
-    this.state = "settled";
-  }
-  saveBoard() {
-    const boardCopy = this.squares.map(
-      ({ row, col, possibilities, settled }) => {
-        const sqCopy = new Square(row, col);
-        sqCopy.possibilities = possibilities;
-        sqCopy.settled = settled;
-        return sqCopy;
-      }
-    );
-    this.previousBoards.push({ board: boardCopy, square: this.selectedSquare });
+    this.state = "readyToCollapse";
   }
 }
 

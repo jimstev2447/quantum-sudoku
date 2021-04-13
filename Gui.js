@@ -1,44 +1,98 @@
 const readline = require("readline");
 const { sleep } = require("./utils");
-
+const chalk = require("chalk");
 class Gui {
   constructor(sudoku) {
     this.sudoku = sudoku;
   }
   watch() {
-    while (this.sudoku.isCorrect && !this.sudoku.allSettled) {
+    while (!this.sudoku.allSettled) {
       sleep(100);
       this.print();
-      console.log(this.sudoku.isCorrect);
       this.sudoku.next();
     }
-    // if (!this.sudoku.isCorrect) {
-    //   this.sudoku.previousBoards.forEach((squares) => {
-    //     this.sudoku.squares = squares;
-    //     this.print();
-    //     sleep(1000);
-    //   });
-    //}
-    this.print();
-    console.log(this.sudoku.isCorrect);
+    //this.print();
+  }
+  getSquarePrint(possibilities, isSettled) {
+    const doubleDigits = this.sudoku.gridSize > 3;
+    if (isSettled) {
+      if (doubleDigits) {
+        const colour =
+          possibilities[0] === "x" || possibilities[0] === 0 ? "red" : "white";
+        return [
+          "            ",
+          chalk[colour](
+            `     ${
+              possibilities[0] > 9 ? possibilities[0] : " " + possibilities[0]
+            }     `
+          ),
+          "            ",
+          "            ",
+        ];
+      } else {
+        const colour =
+          possibilities[0] === "x" || possibilities[0] === 0 ? "red" : "white";
+        return ["      ", chalk[colour](`   ${possibilities[0]}  `), "      "];
+      }
+    }
+    let squareRows = [];
+    for (let i = 0; i < this.sudoku.size; i++) {
+      squareRows.push("");
+    }
+    let index = 0;
+    return squareRows.map((row) => {
+      const colour =
+        possibilities.length < 2
+          ? "green"
+          : possibilities.length < 7
+          ? "yellow"
+          : "red";
+      for (let col = 0; col < this.sudoku.size; col++) {
+        if (doubleDigits) {
+          if (possibilities[index] < 10) {
+            if (possibilities[index] !== undefined) {
+              row += " " + chalk[colour](possibilities[index] + " ");
+            } else {
+              row += "   ";
+            }
+          } else {
+            if (possibilities[index] !== undefined) {
+              row += chalk[colour](possibilities[index] + " ");
+            } else {
+              row += "   ";
+            }
+          }
+          index++;
+        } else {
+          if (possibilities[index] !== undefined) {
+            row += chalk[colour](possibilities[index] + " ");
+          } else {
+            row += "  ";
+          }
+          index++;
+        }
+      }
+      return row;
+    });
   }
   print() {
     const squares = this.sudoku.getSquares();
     const rows = [];
-    for (let i = 0; i < 9; i++) {
-      i % 3 === 0 && i !== 0
+    for (let i = 0; i < this.sudoku.size * this.sudoku.size; i++) {
+      i % this.sudoku.size === 0 && i !== 0
         ? rows.push(
             "-----------------------------------------------------------------\n"
           )
-        : rows.push("\n");
+        : rows.push("");
       const squaresOnRow = squares
         .filter((square) => square.row === i)
-        .map((sq) => sq.getSquare());
+        .map((sq) => this.getSquarePrint(sq.getSquare(), sq.isSettled()));
       let rowStr = "";
-      for (let row = 0; row < 3; row++) {
-        for (let col = 0; col < 9; col++) {
+
+      for (let row = 0; row < this.sudoku.size; row++) {
+        for (let col = 0; col < this.sudoku.size * this.sudoku.size; col++) {
           rowStr +=
-            col % 3 === 0 && col !== 0
+            col % this.sudoku.size === 0 && col !== 0
               ? "| " + squaresOnRow[col][row] + " "
               : "" + squaresOnRow[col][row] + " ";
         }
@@ -48,15 +102,11 @@ class Gui {
     }
     console.clear();
     console.log(rows.join(""));
-    console.log(`Current State: ${this.sudoku.state}`);
+    console.log(`Current State: ${this.sudoku.count}`);
+    console.log(`SelfChecks: ${this.sudoku.selfCheckingWorked}`);
+    console.log(`Recursive reductions: ${this.sudoku.recursiveReductions}`);
+    console.log(`Area check reductions: ${this.sudoku.areaCheckReductions}`);
     console.log(`Decisions: ${this.sudoku.decisions}`);
-    console.log(`number of options: ${this.sudoku.numberOfPossibilities}`);
-    console.log(this.sudoku.previousBoards.length);
-    console.log(
-      this.sudoku.previousBoards[0]
-        ? this.sudoku.previousBoards[0].square
-        : "n/a"
-    );
   }
   updateWithPattern(patternString) {
     const patternArray = patternString.split("\n");
