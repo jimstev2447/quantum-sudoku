@@ -102,11 +102,6 @@ class Gui {
     }
     console.clear();
     console.log(rows.join(""));
-    console.log(`Current State: ${this.sudoku.count}`);
-    console.log(`SelfChecks: ${this.sudoku.selfCheckingWorked}`);
-    console.log(`Recursive reductions: ${this.sudoku.recursiveReductions}`);
-    console.log(`Area check reductions: ${this.sudoku.areaCheckReductions}`);
-    console.log(`Decisions: ${this.sudoku.decisions}`);
   }
   updateWithPattern(patternString) {
     const patternArray = patternString.split("\n");

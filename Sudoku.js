@@ -9,11 +9,7 @@ class Sudoku {
     this.rows = this.generateAreas("row");
     this.cols = this.generateAreas("col");
     this.grids = this.generateAreas("grid");
-    this.selfCheckingWorked = 0;
-    this.recursiveReductions = 0;
-    this.decisions = 0;
-    this.areaCheckReductions = 0;
-    this.count = 0;
+    this.state = "readyToCollapse";
   }
   generateAreas(area) {
     const areas = {};
@@ -71,8 +67,6 @@ class Sudoku {
         this.reducePossibilities(sq);
       }
     });
-
-    this.state = "possibilitiesReduced";
   }
   squaresCheckSelves() {
     this.squares.forEach((sq) => {
@@ -84,7 +78,6 @@ class Sudoku {
       sq.updateSelf(grids[grid]);
       if (test !== sq.possibilities.length) this.selfCheckingWorked++;
     });
-    this.state = "squaresChecked";
   }
   getAffectedSquares(square) {
     return this.squares.filter((sq) => {
@@ -110,7 +103,6 @@ class Sudoku {
     for (const col in this.cols) {
       this.checkArea(this.cols[col]);
     }
-    this.state = "readyToCollapse";
   }
   checkArea(area) {
     const lookup = {};
@@ -133,40 +125,24 @@ class Sudoku {
     }
   }
   next() {
-    let { count } = this;
-    switch (count) {
-      case 0:
+    switch (this.state) {
+      case "readyToCollapse":
         this.collapseNextWave();
-        this.count++;
+        this.state = "collapsed";
         break;
-      case 1:
+      case "collapsed":
         this.reducePossibilities();
-        this.count++;
+        this.state = "possibilitiesReduced";
         break;
-      case 2:
+      case "possibilitiesReduced":
         this.squaresCheckSelves();
-        this.count++;
+        this.state = "squaresChecked";
         break;
-      case 3:
+      case "squaresChecked":
         this.checkAreas();
-        this.count++;
+        this.state = "readyToCollapse";
         break;
     }
-    if (this.count === 4) this.count = 0;
-    // switch (this.state) {
-    //   case "readyToCollapse":
-    //     this.collapseNextWave();
-    //     break;
-    //   case "collapsed":
-    //     this.reducePossibilities();
-    //     break;
-    //   case "possibilitiesReduced":
-    //     this.squaresCheckSelves();
-    //     break;
-    //   case "squaresChecked":
-    //     this.checkAreas();
-    //     break;
-    // }
   }
   updateSquare(row, col, value) {
     const square = this.squares.find((sq) => sq.row === row && sq.col === col);
