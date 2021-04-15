@@ -34,7 +34,7 @@ class Square {
   reducePossibilities(row, col, grid) {
     const allSettled = [...row, ...col, ...grid]
       .filter((sq) => sq.isSettled())
-      .map((sq) => sq.possibilities[0]);
+      .map((sq) => sq.getSquare()[0]);
     this.possibilities = this.possibilities.filter(
       (num) => !allSettled.includes(num)
     );
@@ -65,6 +65,12 @@ class Square {
   }
   isSettled() {
     return this.settled;
+  }
+  checkPair(p1, p2) {
+    return this.possibilities.includes(p1) && this.possibilities.includes(p2);
+  }
+  hasPoss(p) {
+    return this.possibilities.includes(p);
   }
 }
 module.exports = Square;

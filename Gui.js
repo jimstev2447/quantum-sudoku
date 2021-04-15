@@ -7,7 +7,7 @@ class Gui {
   }
   watch() {
     while (!this.sudoku.allSettled) {
-      sleep(100);
+      sleep(200);
       this.print();
       this.sudoku.next();
     }
@@ -102,6 +102,7 @@ class Gui {
     }
     console.clear();
     console.log(rows.join(""));
+    console.log(`Decisions: ${this.sudoku.decisions}`);
   }
   updateWithPattern(patternString) {
     const patternArray = patternString.split("\n");
