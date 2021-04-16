@@ -31,8 +31,10 @@ class Sudoku {
   collapseNextWave() {
     const square = this.findSquareToCollapse();
     if (square !== undefined) {
+      const poss = square.possibilities.length;
       square.collapse();
       this.lastCollapsedSquare = square;
+
       this.state = "collapsed";
     } else {
       this.allSettled = true;
